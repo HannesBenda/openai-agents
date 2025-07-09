@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 from openai import AsyncOpenAI
 import json
 from tools import tools, agentTools
@@ -13,7 +14,7 @@ from agents import (
 
 BASE_URL = "http://188.245.32.59:4000"
 API_KEY = os.getenv("OPENAI_API_KEY")
-MODEL = "gpt-4o-mini"
+MODEL = "gpt-4o-mini" #"gpt-4o-mini"
 
 API_URL = "http://localhost:8081/task/index/" 
 LOG_FILE = "results.log"
@@ -89,6 +90,14 @@ async def run_agents(index):
         #run agent
         result = await Runner.run(agent, prompt, max_turns = 30)
         #print(f"Agent result: {result}")
+        print(f"Agent responses: {result.raw_responses}")
+
+        # set() to remove duplicates, response lists all total_tokens values two times
+        all_total_tokens_str = set(re.findall(r"total_tokens=(\d+)", str(result.raw_responses)))
+
+        # Convert the extracted strings to integers and sum them up
+        total_sum = sum(int(token_str) for token_str in all_total_tokens_str)
+        print(f"Total tokens used: {total_sum}")
 
         #Call REST service instead for evaluation changes form agent
         print(f"Calling SWE-Bench REST service with repo: {local_repo}")
@@ -101,7 +110,7 @@ async def run_agents(index):
         #print(f"test_payload: {test_payload}")
         result_json = tools.verify_solution(test_payload)
         #print(f"result_json:\n{result_json}")
-        tools.log_results(result_json, work_dir, LOG_FILE, index, 0)
+        tools.log_results(result_json, work_dir, LOG_FILE, index, total_sum)
         
 
     except Exception as e:
@@ -113,7 +122,7 @@ async def run_agents(index):
 
 
 async def main():
-    for i in range(1,2):
+    for i in range(1,31):
         await run_agents(i)
 
 if __name__ == "__main__":
